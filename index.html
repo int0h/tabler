@@ -1,0 +1,175 @@
+<html>
+<head>
+    <style>
+        #holder {
+            width: 300px;
+            height: 300px;
+            background: #aee;
+        }
+        td {
+            border: solid 1px;
+            padding: 10px;
+        }
+            
+        table { 
+            border-spacing: 0px;
+            border-collapse: separate;
+        }
+
+        #in-table, #out-table {
+            width: 1000px;
+            height: 500px;
+            overflow: scroll;
+        }
+    </style>
+</head>
+<body>
+    <div>state: <span id='status'/></div>
+    <div id='holder'></div>
+    <hr/>
+    <textarea id='textarea'></textarea>
+    <button id='ok-btn'>ok</button>
+    <hr/>
+    <a id='download' href="data:text/plain;charset=UTF-8,Hello%20World!" download="doc.csv">Скачать</a>
+    <button id='copy'>Скопировать</button>
+    <h3>Исходная таблица</h3>
+    <div id='in-table'></div>
+    <h3>Результирующая таблица</h3>
+    <div id='out-table'></div>
+    <script>
+    // modified from http://html5demos.com/file-api
+var holder = document.getElementById('holder'),
+    state = document.getElementById('status');
+
+if (typeof window.FileReader === 'undefined') {
+    state.className = 'fail';
+} else {
+    state.className = 'success';
+    state.innerHTML = 'File API & FileReader available';
+}
+
+holder.ondragover = function() {
+    this.className = 'hover';
+    return false;
+};
+holder.ondragend = function() {
+    this.className = '';
+    return false;
+};
+holder.ondrop = function(e) {
+    this.className = '';
+    e.preventDefault();
+
+    var file = e.dataTransfer.files[0],
+        reader = new FileReader();
+    reader.onload = function(event) {
+        console.log(event.target);
+        main(event.target.result);
+    };
+    console.log(file);
+    reader.readAsText(file);
+
+    return false;
+}
+
+function onlyUnique(value, index, self) { 
+    return self.indexOf(value) === index;
+}
+
+function table(matrix) {
+    const table = document.createElement('table');
+    matrix.forEach(l => {
+        const tr = document.createElement('tr');
+        l.forEach(c => {
+            const td = document.createElement('td');
+            td.textContent = c;
+            tr.appendChild(td);
+        });
+        table.appendChild(tr);
+    });
+    return table;
+}
+
+function format(text, cat) {
+    if (cat === 'lte' || cat === 'gprs' || cat === 'hsdpa') {
+        if (!/^\d+Kb$/.test(text)) {
+            console.warn('lte: ' + text);
+            return 0;
+        }
+        return text.replace(/Kb/g, '');
+    }
+    if (cat === 'Телеф.') {
+        const [mins, secs] = text.split(':').map(i => Number(i.replace(/^0*/, '')));
+        return mins * 60 + secs;
+    }
+    return text;
+}
+
+const copyToClipboard = str => {
+  const el = document.createElement('textarea');  // Create a <textarea> element
+  el.value = str;                                 // Set its value to the string that you want copied
+  el.setAttribute('readonly', '');                // Make it readonly to be tamper-proof
+  el.style.position = 'absolute';                 
+  el.style.left = '-9999px';                      // Move outside the screen to make it invisible
+  document.body.appendChild(el);                  // Append the <textarea> element to the HTML document
+  const selected =            
+    document.getSelection().rangeCount > 0        // Check if there is any content selected previously
+      ? document.getSelection().getRangeAt(0)     // Store selection if found
+      : false;                                    // Mark as false to know no selection existed before
+  el.select();                                    // Select the <textarea> content
+  document.execCommand('copy');                   // Copy - only works as a result of a user action (e.g. click events)
+  document.body.removeChild(el);                  // Remove the <textarea> element
+  if (selected) {                                 // If a selection existed before copying
+    document.getSelection().removeAllRanges();    // Unselect everything on the HTML document
+    document.getSelection().addRange(selected);   // Restore the original selection
+  }
+};
+
+function main(text, headLine = 6) {
+    const matrix = text.split('\n').map(l => l.split('\t'));
+    document.getElementById('in-table').innerHTML = '';
+    document.getElementById('in-table').appendChild(table(matrix)); 
+    const catId = 6;
+    const lenId = 8;
+    const allCats = ["lte", "sms i", "Телеф.", "sms o", "hsdpa", "gprs"].sort();
+    const result = matrix.map((line, lineId) => {
+        return [
+            ...line.slice(0, lenId),
+            ...allCats.map(cat => {
+                if (lineId < headLine) {
+                    return '';
+                }
+                if (lineId === headLine) {
+                    return 'услуга: ' + cat;
+                }
+                if (cat === line[catId]) {
+                    return format(line[lenId], cat);
+                } else {
+                    return '';
+                }
+            }),
+            // ...allCats.map(cat => ),
+            ...line.slice(lenId)
+        ]
+    });
+
+    document.getElementById('out-table').innerHTML = '';
+    document.getElementById('out-table').appendChild(table(result)); 
+
+    const reslutText = result.map(l => l.join('\t')).join('\n'); 
+    document.getElementById('copy').onclick = () => {
+        const text = result.slice(headLine).map(l => l.join('\t')).join('\n'); 
+        copyToClipboard(text);
+    }
+    document.getElementById('download').href = 'data:text/plain;charset=UTF-8,' + encodeURIComponent(reslutText);
+}
+
+document.getElementById('ok-btn').onclick = () => {
+    const text = document.getElementById('textarea').value;
+    main(text, 0);
+}
+
+
+</script>
+</body>
+</html>
